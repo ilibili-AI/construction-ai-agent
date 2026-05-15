@@ -2,4 +2,9 @@
 venv/
 __pycache__/
 *.pyc
+*.pyo
+buildai.db
 leads.json
+credentials.json
+*.log
+.DS_Store
