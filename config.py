@@ -12,6 +12,7 @@ DATABASE_PATH = os.getenv("DATABASE_PATH", "buildai.db")
 
 # Company Profile
 COMPANY_NAME = os.getenv("COMPANY_NAME", "BuildAI Construction")
+AGENCY_NAME = os.getenv("AGENCY_NAME", "A & I Construction AI")
 COMPANY_PHONE = os.getenv("COMPANY_PHONE", "(555) 010-2040")
 COMPANY_EMAIL = os.getenv("COMPANY_EMAIL", "office@example.com")
 COMPANY_SERVICES = os.getenv("COMPANY_SERVICES", "custom homes, remodels, ADUs, roofing, concrete")
