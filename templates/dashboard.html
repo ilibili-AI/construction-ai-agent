@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard | A&I Solutions</title>
+  <style>
+    :root { --ink:#111827; --muted:#64748b; --line:#e2e8f0; --paper:#fff; --gold:#f59e0b; --gold-2:#fbbf24; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Inter, "Segoe UI", Arial, sans-serif; background: linear-gradient(180deg, #eef2f7 0%, #f8fafc 48%, #eef2f7 100%); color: var(--ink); }
+    button, input, select { font: inherit; }
+    .top { background: linear-gradient(135deg, #111827, #1f2937 58%, #1e3a8a 125%); color: #fff; padding: 20px 36px; display: flex; align-items: center; justify-content: space-between; gap: 18px; box-shadow: 0 18px 45px rgba(15,23,42,.18); }
+    .brand { font-weight: 950; letter-spacing: -.04em; font-size: 1.24rem; }
+    .brand span { color: #fbbf24; }
+    .top a { color: #cbd5e1; text-decoration: none; font-weight: 800; font-size: .9rem; }
+    .top a:hover { color: #fbbf24; }
+    .wrap { max-width: 1280px; margin: 30px auto; padding: 0 22px; }
+    .title { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 18px; flex-wrap: wrap; }
+    .title h1 { font-size: 2rem; letter-spacing: -.045em; }
+    .title p { color: var(--muted); margin-top: 6px; font-size: .9rem; }
+    .export { background: linear-gradient(135deg, var(--gold), var(--gold-2)); color: #111827; text-decoration: none; padding: 11px 18px; border-radius: 13px; font-weight: 950; white-space: nowrap; box-shadow: 0 12px 24px rgba(245,158,11,.24); font-size: .88rem; }
+    .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 18px; }
+    .stat { background: var(--paper); padding: 20px; border-radius: 18px; border: 1px solid var(--line); border-top: 4px solid var(--gold); box-shadow: 0 16px 42px rgba(15,23,42,.08); }
+    .stat small { color: var(--muted); font-weight: 900; text-transform: uppercase; letter-spacing: .08em; font-size: .68rem; }
+    .stat strong { display: block; font-size: 2.1rem; margin-top: 8px; letter-spacing: -.05em; }
+    .filters { background: #fff; border: 1px solid var(--line); padding: 14px; border-radius: 18px; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; box-shadow: 0 12px 34px rgba(15,23,42,.06); align-items: center; }
+    .filters input, .filters select { padding: 10px 12px; border-radius: 12px; border: 1px solid #cbd5e1; background: #fff; min-width: 140px; }
+    .filters button { border: 0; background: #111827; color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 900; cursor: pointer; }
+    .filters a { background: #e2e8f0; color: #111827; padding: 10px 16px; border-radius: 12px; text-decoration: none; font-weight: 900; font-size: .88rem; }
+    .table-card { background: #fff; border-radius: 20px; border: 1px solid var(--line); overflow: hidden; box-shadow: 0 18px 52px rgba(15,23,42,.09); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+    th { background: #f8fafc; color: var(--muted); text-align: left; font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; padding: 13px; font-weight: 700; }
+    td { padding: 14px 13px; border-top: 1px solid #f1f5f9; vertical-align: top; font-size: .88rem; }
+    tr:hover td { background: #f8fafc; }
+    .lead-link { color: var(--ink); font-weight: 950; text-decoration: none; }
+    .lead-link:hover { color: var(--gold); }
+    .note { color: var(--muted); font-size: .78rem; line-height: 1.45; max-width: 220px; overflow-wrap: anywhere; }
+    .score { font-size: 1.15rem; font-weight: 950; }
+    .badge { display: inline-block; padding: 5px 9px; border-radius: 999px; font-size: .72rem; font-weight: 950; white-space: nowrap; }
+    .hot { background: #fee2e2; color: #991b1b; }
+    .qualified { background: #dcfce7; color: #166534; }
+    .review { background: #dbeafe; color: #1e40af; }
+    .low { background: #fef3c7; color: #92400e; }
+    .emergency { background: #7f1d1d; color: #fff; }
+    .normal { background: #e2e8f0; color: #334155; }
+    .status-select { border: 1px solid #cbd5e1; border-radius: 10px; padding: 7px 8px; background: #fff; min-width: 120px; font-size: .82rem; }
+    .empty { padding: 60px; text-align: center; color: var(--muted); }
+    .empty h2 { margin-bottom: 8px; }
+    @media (max-width: 1080px) { .stats { grid-template-columns: repeat(2, 1fr); } .title { flex-direction: column; align-items: start; } }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">A&amp;I <span>Solutions</span> — Dashboard</div>
+    <div style="display:flex;gap:20px;align-items:center;">
+      <a href="/">Back to Chat</a>
+      <a href="/export/leads.csv" style="background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);color:#fde68a;padding:8px 14px;border-radius:999px;font-size:.8rem;">Export CSV</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="title">
+      <div>
+        <h1>📊 Manager Dashboard</h1>
+        <p>All leads collected by Sarah — {{ stats.total }} total records</p>
+      </div>
+    </div>
+
+    <section class="stats">
+      <div class="stat"><small>Total Leads</small><strong>{{ stats.total }}</strong></div>
+      <div class="stat"><small>Hot / Emergency</small><strong style="color:#dc2626">{{ stats.hot }}</strong></div>
+      <div class="stat"><small>High Priority</small><strong style="color:#f59e0b">{{ stats.urgent }}</strong></div>
+      <div class="stat"><small>Scheduled</small><strong style="color:#16a34a">{{ stats.scheduled }}</strong></div>
+      <div class="stat"><small>Today</small><strong style="color:#2563eb">{{ stats.today }}</strong></div>
+    </section>
+
+    <form class="filters" method="get" action="/dashboard">
+      <input name="search" value="{{ search }}" placeholder="Search leads...">
+      <select name="quality">
+        {% for q in ['all', 'Emergency', 'Hot Lead', 'Qualified Lead', 'Needs Review', 'Low Priority', 'Not a Fit'] %}
+          <option value="{{ q }}" {% if quality == q %}selected{% endif %}>{{ display_quality(q) }}</option>
+        {% endfor %}
+      </select>
+      <select name="urgency">
+        {% for u in ['all', 'Emergency', 'High', 'Normal'] %}
+          <option value="{{ u }}" {% if urgency == u %}selected{% endif %}>{{ display_priority(u) }}</option>
+        {% endfor %}
+      </select>
+      <select name="status">
+        {% for s in ['all', 'New', 'Contacted', 'Scheduled', 'Proposal Sent', 'Won', 'Lost'] %}
+          <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Search</button>
+      <a href="/dashboard">Reset</a>
+    </form>
+
+    <section class="table-card">
+      {% if leads %}
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Customer</th>
+            <th>Project</th>
+            <th>Location</th>
+            <th>Budget</th>
+            <th>Timeline</th>
+            <th>Score</th>
+            <th>Interest</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Next Step</th>
+            <th>Still Needed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in leads %}
+          <tr>
+            <td>#{{ lead.id }}</td>
+            <td>
+              <a class="lead-link" href="/lead/{{ lead.id }}">{{ lead.full_name }}</a><br>
+              <span class="note">{{ lead.phone }}<br>{{ lead.email }}</span>
+            </td>
+            <td>{{ lead.project_type }}<br><span class="note">{{ lead.property_type }}</span></td>
+            <td>{{ lead.location }}</td>
+            <td>{{ lead.budget }}</td>
+            <td>{{ lead.timeline }}</td>
+            <td><span class="score">{{ lead.lead_score }}</span></td>
+            <td><span class="badge {{ quality_class(lead.lead_quality) }}">{{ display_quality(lead.lead_quality) }}</span></td>
+            <td><span class="badge {{ urgency_class(lead.urgency) }}">{{ lead.urgency }}</span></td>
+            <td>
+              <select class="status-select" onchange="updateStatus({{ lead.id }}, this.value)">
+                {% for s in ['New', 'Contacted', 'Scheduled', 'Proposal Sent', 'Won', 'Lost'] %}
+                  <option value="{{ s }}" {% if lead.status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td><span class="note">{{ lead.recommended_action }}</span></td>
+            <td><span class="note">{{ lead.missing_info }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">
+        <div style="font-size:3rem;margin-bottom:12px">📭</div>
+        <h2>No leads found</h2>
+        <p>Start a conversation on the chat page to collect leads.</p>
+      </div>
+      {% endif %}
+    </section>
+  </main>
+
+  <script>
+    async function updateStatus(id, status) {
+      const res = await fetch('/api/leads/' + id + '/status', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status})
+      });
+      if (!res.ok) alert('Could not update status.');
+    }
+  </script>
+</body>
+</html>
