@@ -1,316 +1,261 @@
-import sqlite3
-import threading
+"""
+services/database.py
+"""
+
+import os
+import time
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from config import DATABASE_PATH
+from supabase import create_client, Client
 
-_db_lock = threading.Lock()
+logger = logging.getLogger(__name__)
+
+_client = None
+
+def _get_client():
+    global _client
+    if _client is None:
+        url = os.getenv("SUPABASE_URL", "")
+        key = os.getenv("SUPABASE_KEY", "")
+        if not url or not key:
+            raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set in .env")
+        _client = create_client(url, key)
+    return _client
 
 
-def db_connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(DATABASE_PATH, timeout=20)
-    conn.row_factory = sqlite3.Row
-    return conn
+def _retry(fn, attempts=3, delay=0.5):
+    last_exc = None
+    for i in range(attempts):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            logger.warning("[DB] Attempt %d failed: %s", i + 1, exc)
+            if i < attempts - 1:
+                time.sleep(delay * (i + 1))
+    raise last_exc
 
 
-def now_iso() -> str:
+def now_iso():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def init_db() -> None:
-    with _db_lock:
-        conn = db_connect()
+class _Row(dict):
+    def __getattr__(self, key):
         try:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS leads (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT NOT NULL,
-                    full_name TEXT DEFAULT 'Unknown',
-                    phone TEXT DEFAULT 'Unknown',
-                    email TEXT DEFAULT 'Unknown',
-                    project_type TEXT DEFAULT 'General Construction',
-                    project_scope TEXT DEFAULT 'Unknown',
-                    budget TEXT DEFAULT 'Unknown',
-                    location TEXT DEFAULT 'Unknown',
-                    property_type TEXT DEFAULT 'Unknown',
-                    timeline TEXT DEFAULT 'Unknown',
-                    urgency TEXT DEFAULT 'Normal',
-                    lead_score INTEGER DEFAULT 0,
-                    lead_quality TEXT DEFAULT 'Needs Review',
-                    missing_info TEXT DEFAULT '',
-                    recommended_action TEXT DEFAULT 'Needs human review',
-                    summary TEXT DEFAULT '',
-                    notes TEXT DEFAULT '',
-                    manager_notes TEXT DEFAULT '',
-                    notified_at TEXT DEFAULT '',
-                    status TEXT DEFAULT 'New',
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                )
-            """)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS conversations (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT NOT NULL,
-                    sender TEXT NOT NULL,
-                    message TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                )
-            """)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS appointments (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    lead_id INTEGER,
-                    session_id TEXT NOT NULL,
-                    full_name TEXT DEFAULT 'Unknown',
-                    phone TEXT DEFAULT 'Unknown',
-                    appointment_date TEXT DEFAULT '',
-                    appointment_time TEXT DEFAULT '',
-                    appointment_type TEXT DEFAULT 'Consultation',
-                    status TEXT DEFAULT 'Requested',
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                )
-            """)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS handoffs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    lead_id INTEGER,
-                    session_id TEXT NOT NULL,
-                    reason TEXT DEFAULT '',
-                    priority TEXT DEFAULT 'Normal',
-                    status TEXT DEFAULT 'Pending',
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                )
-            """)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_leads_session ON leads(session_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_session ON conversations(session_id)")
-            conn.commit()
-        finally:
-            conn.close()
+            return self[key]
+        except KeyError:
+            raise AttributeError(key)
 
 
-def log_message(session_id: str, sender: str, message: str) -> None:
-    with _db_lock:
-        conn = db_connect()
-        try:
-            conn.execute(
-                "INSERT INTO conversations (session_id, sender, message, created_at) VALUES (?, ?, ?, ?)",
-                (session_id, sender, message, now_iso()),
-            )
-            conn.commit()
-        finally:
-            conn.close()
+def _wrap(data):
+    if data is None:
+        return None
+    if isinstance(data, list):
+        return [_Row(r) for r in data]
+    return _Row(data)
 
 
-def get_conversation(session_id: str, limit: int = 80) -> List[sqlite3.Row]:
-    conn = db_connect()
+def init_db():
     try:
-        rows = conn.execute(
-            "SELECT sender, message, created_at FROM conversations WHERE session_id = ? ORDER BY id DESC LIMIT ?",
-            (session_id, limit),
-        ).fetchall()
-        return rows[::-1]
-    finally:
-        conn.close()
+        client = _get_client()
+        client.table("leads").select("id").limit(1).execute()
+        logger.info("[DB] Supabase connection OK")
+    except Exception as exc:
+        logger.warning("[DB] Supabase connectivity check failed: %s", exc)
 
 
-def transcript_for_session(session_id: str, sender: Optional[str] = None) -> str:
+def log_message(session_id, sender, message):
+    def _do():
+        _get_client().table("conversations").insert({
+            "session_id": session_id,
+            "sender": sender,
+            "message": message,
+            "created_at": now_iso(),
+        }).execute()
+    _retry(_do)
+
+
+def get_conversation(session_id, limit=80):
+    def _do():
+        res = (
+            _get_client()
+            .table("conversations")
+            .select("sender, message, created_at")
+            .eq("session_id", session_id)
+            .order("id", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        rows = list(reversed(res.data or []))
+        return _wrap(rows)
+    return _retry(_do)
+
+
+def transcript_for_session(session_id, sender=None):
     rows = get_conversation(session_id, limit=160)
     if sender:
         rows = [r for r in rows if r["sender"] == sender]
     return "\n".join(str(r["message"]) for r in rows)
 
 
-def get_existing_lead(session_id: str) -> Optional[sqlite3.Row]:
-    conn = db_connect()
-    try:
-        return conn.execute(
-            "SELECT * FROM leads WHERE session_id = ? ORDER BY id DESC LIMIT 1",
-            (session_id,),
-        ).fetchone()
-    finally:
-        conn.close()
+def get_existing_lead(session_id):
+    def _do():
+        res = (
+            _get_client()
+            .table("leads")
+            .select("*")
+            .eq("session_id", session_id)
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        data = res.data
+        return _wrap(data[0]) if data else None
+    return _retry(_do)
 
 
-def upsert_lead(session_id: str, payload: Dict[str, Any]) -> int:
-    with _db_lock:
-        conn = db_connect()
-        try:
-            existing = conn.execute(
-                "SELECT id FROM leads WHERE session_id = ? ORDER BY id DESC LIMIT 1",
-                (session_id,),
-            ).fetchone()
-
-            if existing:
-                lead_id = int(existing["id"])
-                conn.execute("""
-                    UPDATE leads SET
-                        full_name=?, phone=?, email=?, project_type=?, project_scope=?,
-                        budget=?, location=?, property_type=?, timeline=?, urgency=?,
-                        lead_score=?, lead_quality=?, missing_info=?, recommended_action=?,
-                        summary=?, notes=?, updated_at=?
-                    WHERE id=?
-                """, (
-                    payload.get("full_name", "Unknown"),
-                    payload.get("phone", "Unknown"),
-                    payload.get("email", "Unknown"),
-                    payload.get("project_type", "General Construction"),
-                    payload.get("project_scope", "Unknown"),
-                    payload.get("budget", "Unknown"),
-                    payload.get("location", "Unknown"),
-                    payload.get("property_type", "Unknown"),
-                    payload.get("timeline", "Unknown"),
-                    payload.get("urgency", "Normal"),
-                    payload.get("lead_score", 0),
-                    payload.get("lead_quality", "Needs Review"),
-                    payload.get("missing_info", ""),
-                    payload.get("recommended_action", "Needs human review"),
-                    payload.get("summary", ""),
-                    payload.get("notes", ""),
-                    now_iso(),
-                    lead_id,
-                ))
-            else:
-                cursor = conn.execute("""
-                    INSERT INTO leads (
-                        session_id, full_name, phone, email, project_type, project_scope,
-                        budget, location, property_type, timeline, urgency, lead_score,
-                        lead_quality, missing_info, recommended_action, summary, notes,
-                        created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    session_id,
-                    payload.get("full_name", "Unknown"),
-                    payload.get("phone", "Unknown"),
-                    payload.get("email", "Unknown"),
-                    payload.get("project_type", "General Construction"),
-                    payload.get("project_scope", "Unknown"),
-                    payload.get("budget", "Unknown"),
-                    payload.get("location", "Unknown"),
-                    payload.get("property_type", "Unknown"),
-                    payload.get("timeline", "Unknown"),
-                    payload.get("urgency", "Normal"),
-                    payload.get("lead_score", 0),
-                    payload.get("lead_quality", "Needs Review"),
-                    payload.get("missing_info", ""),
-                    payload.get("recommended_action", "Needs human review"),
-                    payload.get("summary", ""),
-                    payload.get("notes", ""),
-                    now_iso(),
-                    now_iso(),
-                ))
-                lead_id = int(cursor.lastrowid)
-
-            conn.commit()
+def upsert_lead(session_id, payload):
+    def _do():
+        client = _get_client()
+        existing = (
+            client.table("leads")
+            .select("id")
+            .eq("session_id", session_id)
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        row = {
+            "full_name":          payload.get("full_name", "Unknown"),
+            "phone":              payload.get("phone", "Unknown"),
+            "email":              payload.get("email", "Unknown"),
+            "project_type":       payload.get("project_type", "General Construction"),
+            "project_scope":      payload.get("project_scope", "Unknown"),
+            "budget":             payload.get("budget", "Unknown"),
+            "location":           payload.get("location", "Unknown"),
+            "property_type":      payload.get("property_type", "Unknown"),
+            "timeline":           payload.get("timeline", "Unknown"),
+            "urgency":            payload.get("urgency", "Normal"),
+            "lead_score":         payload.get("lead_score", 0),
+            "lead_quality":       payload.get("lead_quality", "Needs Review"),
+            "missing_info":       payload.get("missing_info", ""),
+            "recommended_action": payload.get("recommended_action", "Needs human review"),
+            "summary":            payload.get("summary", ""),
+            "notes":              payload.get("notes", ""),
+            "updated_at":         now_iso(),
+        }
+        if existing.data:
+            lead_id = existing.data[0]["id"]
+            client.table("leads").update(row).eq("id", lead_id).execute()
             return lead_id
-        finally:
-            conn.close()
+        else:
+            row["session_id"] = session_id
+            row["created_at"] = now_iso()
+            res = client.table("leads").insert(row).execute()
+            return res.data[0]["id"]
+    return _retry(_do)
 
 
-def fetch_leads(status: str = "all", quality: str = "all", urgency: str = "all", search: str = "") -> List[sqlite3.Row]:
-    clauses, params = [], []
-    if status != "all":
-        clauses.append("status = ?")
-        params.append(status)
-    if quality != "all":
-        clauses.append("lead_quality = ?")
-        params.append(quality)
-    if urgency != "all":
-        clauses.append("urgency = ?")
-        params.append(urgency)
-    if search:
-        like = f"%{search}%"
-        clauses.append("(full_name LIKE ? OR phone LIKE ? OR project_type LIKE ? OR location LIKE ?)")
-        params.extend([like, like, like, like])
-
-    where = "WHERE " + " AND ".join(clauses) if clauses else ""
-    conn = db_connect()
-    try:
-        return conn.execute(f"""
-            SELECT * FROM leads {where}
-            ORDER BY
-                CASE urgency WHEN 'Emergency' THEN 1 WHEN 'High' THEN 2 ELSE 3 END,
-                lead_score DESC, updated_at DESC
-            LIMIT 300
-        """, params).fetchall()
-    finally:
-        conn.close()
+def fetch_leads(status="all", quality="all", urgency="all", search=""):
+    def _do():
+        q = _get_client().table("leads").select("*")
+        if status != "all":
+            q = q.eq("status", status)
+        if quality != "all":
+            q = q.eq("lead_quality", quality)
+        if urgency != "all":
+            q = q.eq("urgency", urgency)
+        if search:
+            q = q.or_(
+                f"full_name.ilike.%{search}%,"
+                f"phone.ilike.%{search}%,"
+                f"project_type.ilike.%{search}%,"
+                f"location.ilike.%{search}%"
+            )
+        res = q.order("lead_score", desc=True).limit(300).execute()
+        return _wrap(res.data or [])
+    return _retry(_do)
 
 
-def fetch_lead_by_id(lead_id: int) -> Optional[sqlite3.Row]:
-    conn = db_connect()
-    try:
-        return conn.execute("SELECT * FROM leads WHERE id = ?", (lead_id,)).fetchone()
-    finally:
-        conn.close()
+def fetch_lead_by_id(lead_id):
+    def _do():
+        res = (
+            _get_client()
+            .table("leads")
+            .select("*")
+            .eq("id", lead_id)
+            .limit(1)
+            .execute()
+        )
+        data = res.data
+        return _wrap(data[0]) if data else None
+    return _retry(_do)
 
 
-def update_lead_status(lead_id: int, status: str) -> bool:
+def update_lead_status(lead_id, status):
     allowed = {"New", "Contacted", "Scheduled", "Proposal Sent", "Won", "Lost"}
     if status not in allowed:
         return False
-    with _db_lock:
-        conn = db_connect()
-        try:
-            cursor = conn.execute(
-                "UPDATE leads SET status = ?, updated_at = ? WHERE id = ?",
-                (status, now_iso(), lead_id),
-            )
-            conn.commit()
-            return cursor.rowcount > 0
-        finally:
-            conn.close()
+    def _do():
+        res = (
+            _get_client()
+            .table("leads")
+            .update({"status": status, "updated_at": now_iso()})
+            .eq("id", lead_id)
+            .execute()
+        )
+        return bool(res.data)
+    return _retry(_do)
 
 
-def update_manager_notes(lead_id: int, notes: str) -> bool:
-    with _db_lock:
-        conn = db_connect()
-        try:
-            cursor = conn.execute(
-                "UPDATE leads SET manager_notes = ?, updated_at = ? WHERE id = ?",
-                (notes[:3000], now_iso(), lead_id),
-            )
-            conn.commit()
-            return cursor.rowcount > 0
-        finally:
-            conn.close()
+def update_manager_notes(lead_id, notes):
+    def _do():
+        res = (
+            _get_client()
+            .table("leads")
+            .update({"manager_notes": notes[:3000], "updated_at": now_iso()})
+            .eq("id", lead_id)
+            .execute()
+        )
+        return bool(res.data)
+    return _retry(_do)
 
 
-def mark_lead_notified(lead_id: int) -> None:
-    with _db_lock:
-        conn = db_connect()
-        try:
-            conn.execute(
-                "UPDATE leads SET notified_at = ?, updated_at = ? WHERE id = ?",
-                (now_iso(), now_iso(), lead_id),
-            )
-            conn.commit()
-        finally:
-            conn.close()
+def mark_lead_notified(lead_id):
+    def _do():
+        _get_client().table("leads").update({
+            "notified_at": now_iso(),
+            "updated_at":  now_iso(),
+        }).eq("id", lead_id).execute()
+    _retry(_do)
 
 
-def lead_was_notified(lead_id: int) -> bool:
-    conn = db_connect()
-    try:
-        row = conn.execute("SELECT notified_at FROM leads WHERE id = ?", (lead_id,)).fetchone()
-        return bool(row and row["notified_at"])
-    finally:
-        conn.close()
+def lead_was_notified(lead_id):
+    def _do():
+        res = (
+            _get_client()
+            .table("leads")
+            .select("notified_at")
+            .eq("id", lead_id)
+            .limit(1)
+            .execute()
+        )
+        data = res.data
+        return bool(data and data[0].get("notified_at"))
+    return _retry(_do)
 
 
-def dashboard_stats() -> Dict[str, int]:
-    conn = db_connect()
-    try:
+def dashboard_stats():
+    def _do():
+        client = _get_client()
         today = datetime.now(timezone.utc).date().isoformat()
-        total = conn.execute("SELECT COUNT(*) AS c FROM leads").fetchone()["c"]
-        hot = conn.execute("SELECT COUNT(*) AS c FROM leads WHERE lead_quality IN ('Hot Lead', 'Emergency')").fetchone()["c"]
-        urgent = conn.execute("SELECT COUNT(*) AS c FROM leads WHERE urgency IN ('High', 'Emergency')").fetchone()["c"]
-        scheduled = conn.execute("SELECT COUNT(*) AS c FROM leads WHERE status = 'Scheduled'").fetchone()["c"]
-        today_count = conn.execute("SELECT COUNT(*) AS c FROM leads WHERE created_at LIKE ?", (f"{today}%",)).fetchone()["c"]
+        total     = client.table("leads").select("id", count="exact").execute().count or 0
+        hot       = client.table("leads").select("id", count="exact").in_("lead_quality", ["Hot Lead", "Emergency"]).execute().count or 0
+        urgent    = client.table("leads").select("id", count="exact").in_("urgency", ["High", "Emergency"]).execute().count or 0
+        scheduled = client.table("leads").select("id", count="exact").eq("status", "Scheduled").execute().count or 0
+        today_count = client.table("leads").select("id", count="exact").gte("created_at", today).execute().count or 0
         return {"total": total, "hot": hot, "urgent": urgent, "scheduled": scheduled, "today": today_count}
-    finally:
-        conn.close()
+    return _retry(_do)
