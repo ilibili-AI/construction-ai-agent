@@ -3,7 +3,6 @@ from flask import Flask
 from config import FLASK_SECRET_KEY, APP_ENV
 from services.database import init_db
 
-
 def create_app():
     app = Flask(__name__)
     app.secret_key = FLASK_SECRET_KEY
@@ -12,9 +11,11 @@ def create_app():
 
     from routes.chat_routes import chat_bp
     from routes.dashboard_routes import dashboard_bp
+    from routes.vapi_routes import vapi_bp
 
     app.register_blueprint(chat_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(vapi_bp)
 
     @app.context_processor
     def template_helpers():
@@ -30,7 +31,6 @@ def create_app():
         }
 
     return app
-
 
 app = create_app()
 
