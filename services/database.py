@@ -257,5 +257,22 @@ def dashboard_stats():
         urgent    = client.table("leads").select("id", count="exact").in_("urgency", ["High", "Emergency"]).execute().count or 0
         scheduled = client.table("leads").select("id", count="exact").eq("status", "Scheduled").execute().count or 0
         today_count = client.table("leads").select("id", count="exact").gte("created_at", today).execute().count or 0
-        return {"total": total, "hot": hot, "urgent": urgent, "scheduled": scheduled, "today": today_count}
+
+        score_res = client.table("leads").select("lead_score").execute()
+        scores = [row.get("lead_score", 0) for row in (score_res.data or [])]
+        avg_score = round(sum(scores) / len(scores)) if scores else 0
+
+        convo_res = client.table("conversations").select("session_id").execute()
+        sessions = set(row.get("session_id") for row in (convo_res.data or []) if row.get("session_id"))
+        calls = len(sessions)
+
+        return {
+            "total": total,
+            "hot": hot,
+            "urgent": urgent,
+            "scheduled": scheduled,
+            "today": today_count,
+            "avg_score": avg_score,
+            "calls": calls,
+        }
     return _retry(_do)

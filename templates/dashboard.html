@@ -3,153 +3,441 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dashboard | A&I Solutions</title>
+  <title>Dashboard | A&amp;I Solutions</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
   <style>
-    :root { --ink:#111827; --muted:#64748b; --line:#e2e8f0; --paper:#fff; --gold:#f59e0b; --gold-2:#fbbf24; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Inter, "Segoe UI", Arial, sans-serif; background: linear-gradient(180deg, #eef2f7 0%, #f8fafc 48%, #eef2f7 100%); color: var(--ink); }
+    :root {
+      --ink:#0f172a; --ink-soft:#1e293b; --muted:#64748b; --line:#e2e8f0;
+      --paper:#fff; --bg:#f4f6fa;
+      --gold:#f59e0b; --gold-2:#fbbf24;
+      --sidebar:#0b1220; --sidebar-line:rgba(255,255,255,.08); --sidebar-text:#94a3b8;
+      --hot:#dc2626; --hot-bg:#fef2f2;
+      --qualified:#2563eb; --qualified-bg:#eff6ff;
+      --gray:#64748b; --gray-bg:#f1f5f9;
+      --green:#16a34a; --green-bg:#f0fdf4;
+    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    html, body { height:100%; }
+    body {
+      font-family: "Inter", "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      display:flex;
+      min-height:100vh;
+    }
     button, input, select { font: inherit; }
-    .top { background: linear-gradient(135deg, #111827, #1f2937 58%, #1e3a8a 125%); color: #fff; padding: 20px 36px; display: flex; align-items: center; justify-content: space-between; gap: 18px; box-shadow: 0 18px 45px rgba(15,23,42,.18); }
-    .brand { font-weight: 950; letter-spacing: -.04em; font-size: 1.24rem; }
-    .brand span { color: #fbbf24; }
-    .top a { color: #cbd5e1; text-decoration: none; font-weight: 800; font-size: .9rem; }
-    .top a:hover { color: #fbbf24; }
-    .wrap { max-width: 1280px; margin: 30px auto; padding: 0 22px; }
-    .title { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 18px; flex-wrap: wrap; }
-    .title h1 { font-size: 2rem; letter-spacing: -.045em; }
-    .title p { color: var(--muted); margin-top: 6px; font-size: .9rem; }
-    .export { background: linear-gradient(135deg, var(--gold), var(--gold-2)); color: #111827; text-decoration: none; padding: 11px 18px; border-radius: 13px; font-weight: 950; white-space: nowrap; box-shadow: 0 12px 24px rgba(245,158,11,.24); font-size: .88rem; }
-    .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 18px; }
-    .stat { background: var(--paper); padding: 20px; border-radius: 18px; border: 1px solid var(--line); border-top: 4px solid var(--gold); box-shadow: 0 16px 42px rgba(15,23,42,.08); }
-    .stat small { color: var(--muted); font-weight: 900; text-transform: uppercase; letter-spacing: .08em; font-size: .68rem; }
-    .stat strong { display: block; font-size: 2.1rem; margin-top: 8px; letter-spacing: -.05em; }
-    .filters { background: #fff; border: 1px solid var(--line); padding: 14px; border-radius: 18px; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; box-shadow: 0 12px 34px rgba(15,23,42,.06); align-items: center; }
-    .filters input, .filters select { padding: 10px 12px; border-radius: 12px; border: 1px solid #cbd5e1; background: #fff; min-width: 140px; }
-    .filters button { border: 0; background: #111827; color: #fff; padding: 10px 16px; border-radius: 12px; font-weight: 900; cursor: pointer; }
-    .filters a { background: #e2e8f0; color: #111827; padding: 10px 16px; border-radius: 12px; text-decoration: none; font-weight: 900; font-size: .88rem; }
-    .table-card { background: #fff; border-radius: 20px; border: 1px solid var(--line); overflow: hidden; box-shadow: 0 18px 52px rgba(15,23,42,.09); overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 1100px; }
-    th { background: #f8fafc; color: var(--muted); text-align: left; font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; padding: 13px; font-weight: 700; }
-    td { padding: 14px 13px; border-top: 1px solid #f1f5f9; vertical-align: top; font-size: .88rem; }
-    tr:hover td { background: #f8fafc; }
-    .lead-link { color: var(--ink); font-weight: 950; text-decoration: none; }
-    .lead-link:hover { color: var(--gold); }
-    .note { color: var(--muted); font-size: .78rem; line-height: 1.45; max-width: 220px; overflow-wrap: anywhere; }
-    .score { font-size: 1.15rem; font-weight: 950; }
-    .badge { display: inline-block; padding: 5px 9px; border-radius: 999px; font-size: .72rem; font-weight: 950; white-space: nowrap; }
-    .hot { background: #fee2e2; color: #991b1b; }
-    .qualified { background: #dcfce7; color: #166534; }
-    .review { background: #dbeafe; color: #1e40af; }
-    .low { background: #fef3c7; color: #92400e; }
-    .emergency { background: #7f1d1d; color: #fff; }
-    .normal { background: #e2e8f0; color: #334155; }
-    .status-select { border: 1px solid #cbd5e1; border-radius: 10px; padding: 7px 8px; background: #fff; min-width: 120px; font-size: .82rem; }
-    .empty { padding: 60px; text-align: center; color: var(--muted); }
-    .empty h2 { margin-bottom: 8px; }
-    @media (max-width: 1080px) { .stats { grid-template-columns: repeat(2, 1fr); } .title { flex-direction: column; align-items: start; } }
+    ::selection { background: var(--gold-2); color:#111827; }
+
+    .sidebar {
+      width: 256px;
+      flex-shrink: 0;
+      background: var(--sidebar);
+      color: var(--sidebar-text);
+      display:flex;
+      flex-direction:column;
+      position: sticky;
+      top:0;
+      height:100vh;
+      border-right: 1px solid var(--sidebar-line);
+    }
+    .sidebar-brand {
+      padding: 26px 24px 22px;
+      border-bottom: 1px solid var(--sidebar-line);
+    }
+    .sidebar-brand .mark {
+      width:38px; height:38px; border-radius:10px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-2));
+      display:flex; align-items:center; justify-content:center;
+      font-weight:950; color:#1c1303; font-size:1.05rem; letter-spacing:-.04em;
+      margin-bottom:14px;
+      box-shadow: 0 8px 20px rgba(245,158,11,.28);
+    }
+    .sidebar-brand h1 {
+      color:#fff; font-size:1.06rem; font-weight:900; letter-spacing:-.03em; line-height:1.25;
+    }
+    .sidebar-brand span { color: var(--gold-2); }
+    .sidebar-brand p {
+      font-size:.72rem; color:#64748b; margin-top:4px; font-weight:600;
+      text-transform:uppercase; letter-spacing:.09em;
+    }
+
+    .sidebar-nav { flex:1; padding: 18px 14px; }
+    .sidebar-nav .nav-label {
+      font-size:.66rem; text-transform:uppercase; letter-spacing:.1em; font-weight:800;
+      color:#475569; padding: 6px 12px 8px;
+    }
+    .sidebar-nav a {
+      display:flex; align-items:center; gap:11px;
+      color: var(--sidebar-text); text-decoration:none;
+      padding: 10px 12px; border-radius:10px; font-size:.875rem; font-weight:700;
+      margin-bottom:2px; transition: background .12s ease, color .12s ease;
+    }
+    .sidebar-nav a .ico { width:18px; text-align:center; opacity:.85; }
+    .sidebar-nav a:hover { background: rgba(255,255,255,.06); color:#fff; }
+    .sidebar-nav a.active {
+      background: rgba(245,158,11,.12); color: var(--gold-2);
+      box-shadow: inset 3px 0 0 var(--gold);
+    }
+
+    .sidebar-foot {
+      padding: 16px 20px 22px;
+      border-top: 1px solid var(--sidebar-line);
+      font-size:.72rem; color:#475569;
+    }
+    .live-dot {
+      display:inline-block; width:7px; height:7px; border-radius:50%;
+      background:#22c55e; margin-right:7px;
+      box-shadow: 0 0 0 0 rgba(34,197,94,.55);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(34,197,94,.45); }
+      70% { box-shadow: 0 0 0 7px rgba(34,197,94,0); }
+      100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+
+    .mobile-bar {
+      display:none;
+      position: sticky; top:0; z-index:30;
+      background: var(--sidebar); color:#fff;
+      padding: 14px 18px; align-items:center; justify-content:space-between;
+      border-bottom: 1px solid var(--sidebar-line);
+    }
+    .mobile-bar .brand-mini { font-weight:900; font-size:1rem; letter-spacing:-.03em; }
+    .mobile-bar .brand-mini span { color: var(--gold-2); }
+    .burger {
+      width:38px; height:38px; border-radius:9px; border:1px solid var(--sidebar-line);
+      background: rgba(255,255,255,.04); color:#fff; display:flex; align-items:center;
+      justify-content:center; cursor:pointer; font-size:1.1rem;
+    }
+
+    .main { flex:1; min-width:0; }
+    .content { max-width: 1320px; margin: 0 auto; padding: 30px 32px 60px; }
+
+    .pageheader {
+      display:flex; align-items:flex-end; justify-content:space-between;
+      gap:18px; margin-bottom:24px; flex-wrap:wrap;
+    }
+    .pageheader h2 { font-size:1.62rem; font-weight:900; letter-spacing:-.04em; }
+    .pageheader .eyebrow {
+      font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em;
+      color: var(--gold); margin-bottom:6px;
+    }
+    .pageheader p { color: var(--muted); margin-top:5px; font-size:.88rem; }
+    .export-btn {
+      background: linear-gradient(135deg, var(--gold), var(--gold-2)); color:#1c1303;
+      text-decoration:none; padding: 11px 19px; border-radius:12px; font-weight:900;
+      white-space:nowrap; box-shadow: 0 12px 26px rgba(245,158,11,.26); font-size:.85rem;
+      display:inline-flex; align-items:center; gap:8px;
+    }
+
+    .metrics {
+      display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin-bottom:22px;
+    }
+    .metric {
+      background: var(--paper); border:1px solid var(--line); border-radius:16px;
+      padding: 20px 22px; position:relative; overflow:hidden;
+      box-shadow: 0 12px 32px rgba(15,23,42,.05);
+    }
+    .metric::after {
+      content:""; position:absolute; top:0; left:0; right:0; height:3px;
+      background: var(--accent, var(--gold));
+    }
+    .metric .m-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .metric .m-icon {
+      width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+      font-size:1rem; background: var(--accent-bg, #fef3c7); color: var(--accent, #b45309);
+    }
+    .metric .m-label {
+      font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color: var(--muted);
+    }
+    .metric .m-value {
+      font-size:2rem; font-weight:950; letter-spacing:-.045em; font-variant-numeric: tabular-nums;
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    }
+    .metric .m-sub { font-size:.74rem; color: var(--muted); margin-top:4px; font-weight:600; }
+
+    .metric.m-today { --accent:#f59e0b; --accent-bg:#fef3c7; }
+    .metric.m-hot    { --accent:#dc2626; --accent-bg:#fee2e2; }
+    .metric.m-score  { --accent:#2563eb; --accent-bg:#dbeafe; }
+    .metric.m-calls  { --accent:#16a34a; --accent-bg:#dcfce7; }
+
+    .chart-card {
+      background: var(--paper); border:1px solid var(--line); border-radius:18px;
+      padding: 22px 24px 14px; margin-bottom: 22px;
+      box-shadow: 0 12px 32px rgba(15,23,42,.05);
+    }
+    .chart-card .ch-head {
+      display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px;
+    }
+    .chart-card h3 { font-size:1rem; font-weight:900; letter-spacing:-.02em; }
+    .chart-card .ch-sub { font-size:.78rem; color:var(--muted); font-weight:600; }
+    .chart-wrap { height: 230px; position:relative; }
+
+    .filters {
+      background: var(--paper); border:1px solid var(--line); padding:14px;
+      border-radius:16px; display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px;
+      box-shadow: 0 10px 28px rgba(15,23,42,.04); align-items:center;
+    }
+    .filters input, .filters select {
+      padding: 10px 13px; border-radius:11px; border:1px solid #cbd5e1; background:#fff; min-width:150px;
+    }
+    .filters input:focus, .filters select:focus { outline: 2px solid var(--gold-2); outline-offset:1px; }
+    .filters button {
+      border:0; background: var(--ink); color:#fff; padding:10px 18px; border-radius:11px;
+      font-weight:900; cursor:pointer; font-size:.85rem;
+    }
+    .filters button:hover { background: var(--ink-soft); }
+    .filters a {
+      background: var(--gray-bg); color: var(--ink); padding:10px 16px; border-radius:11px;
+      text-decoration:none; font-weight:800; font-size:.85rem;
+    }
+
+    .table-card {
+      background: var(--paper); border-radius:18px; border:1px solid var(--line);
+      overflow:hidden; box-shadow: 0 14px 38px rgba(15,23,42,.06); overflow-x:auto;
+    }
+    table { width:100%; border-collapse:collapse; min-width:920px; }
+    th {
+      background: #f8fafc; color: var(--muted); text-align:left; font-size:.68rem;
+      text-transform:uppercase; letter-spacing:.08em; padding:13px 14px; font-weight:800;
+      border-bottom: 1px solid var(--line);
+    }
+    td { padding:14px; border-top:1px solid #f1f5f9; vertical-align:middle; font-size:.87rem; }
+    tr:hover td { background:#fafbfd; }
+    .lead-name { color:var(--ink); font-weight:900; text-decoration:none; font-size:.92rem; }
+    .lead-name:hover { color: var(--gold); }
+    .phone-line { color:var(--muted); font-size:.78rem; margin-top:2px; }
+    .time-line { color:var(--muted); font-size:.8rem; font-variant-numeric: tabular-nums; }
+
+    .score-pill {
+      display:inline-flex; align-items:center; gap:6px; padding:6px 11px; border-radius:999px;
+      font-weight:950; font-size:.82rem; font-variant-numeric: tabular-nums;
+    }
+    .score-pill.s-hot { background: var(--green-bg); color: var(--green); }
+    .score-pill.s-qualified { background: var(--qualified-bg); color: var(--qualified); }
+    .score-pill.s-gray { background: var(--gray-bg); color: var(--gray); }
+
+    .type-badge {
+      display:inline-block; padding:5px 10px; border-radius:999px; font-size:.72rem; font-weight:900;
+    }
+    .hot { background:#fee2e2; color:#991b1b; }
+    .qualified { background:#dcfce7; color:#166534; }
+    .review { background:#dbeafe; color:#1e40af; }
+    .low { background:#fef3c7; color:#92400e; }
+    .emergency { background:#7f1d1d; color:#fff; }
+    .normal { background:#e2e8f0; color:#334155; }
+
+    .status-select {
+      border:1px solid #cbd5e1; border-radius:10px; padding:7px 9px; background:#fff;
+      min-width:128px; font-size:.8rem; font-weight:700;
+    }
+    .row-actions { display:flex; gap:8px; align-items:center; }
+    .view-btn {
+      border:1px solid var(--line); background:#fff; color:var(--ink); padding:7px 12px;
+      border-radius:9px; font-size:.78rem; font-weight:800; text-decoration:none; white-space:nowrap;
+    }
+    .view-btn:hover { border-color: var(--gold); color:#92400e; background:#fffbeb; }
+
+    .empty { padding:70px 20px; text-align:center; color:var(--muted); }
+    .empty .e-ico { font-size:2.6rem; margin-bottom:14px; }
+    .empty h2 { margin-bottom:8px; color: var(--ink); font-size:1.1rem; }
+
+    .sidebar-backdrop { display:none; }
+
+    @media (max-width: 1080px) {
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 880px) {
+      body { flex-direction: column; }
+      .sidebar {
+        position: fixed; left:0; top:0; height:100vh; z-index:50;
+        transform: translateX(-100%); transition: transform .22s ease;
+        box-shadow: 20px 0 60px rgba(0,0,0,.35);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-backdrop {
+        display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:40;
+      }
+      .sidebar-backdrop.show { display:block; }
+      .mobile-bar { display:flex; }
+      .content { padding: 20px 16px 50px; }
+      .metrics { grid-template-columns: 1fr 1fr; gap:12px; }
+      .pageheader h2 { font-size:1.32rem; }
+      .pageheader { flex-direction:column; align-items:flex-start; }
+      .filters { flex-direction:column; align-items:stretch; }
+      .filters input, .filters select { width:100%; }
+      .chart-wrap { height:200px; }
+    }
+    @media (max-width: 520px) {
+      .metrics { grid-template-columns: 1fr; }
+      .metric .m-value { font-size:1.7rem; }
+    }
   </style>
 </head>
 <body>
-  <header class="top">
-    <div class="brand">A&amp;I <span>Solutions</span> — Dashboard</div>
-    <div style="display:flex;gap:20px;align-items:center;">
-      <a href="/">Back to Chat</a>
-      <a href="/export/leads.csv" style="background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);color:#fde68a;padding:8px 14px;border-radius:999px;font-size:.8rem;">Export CSV</a>
-    </div>
-  </header>
 
-  <main class="wrap">
-    <div class="title">
-      <div>
-        <h1>📊 Manager Dashboard</h1>
-        <p>All leads collected by Sarah — {{ stats.total }} total records</p>
+  <div class="sidebar-backdrop" id="backdrop" onclick="closeSidebar()"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="mark">A&amp;I</div>
+      <h1>A&amp;I <span>Solutions</span></h1>
+      <p>Receptionist CRM</p>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="/dashboard" class="active"><span class="ico">▣</span> Dashboard</a>
+      <a href="/"><span class="ico">💬</span> Chat with Sarah</a>
+      <a href="/export/leads.csv"><span class="ico">⬇</span> Export CSV</a>
+    </nav>
+    <div class="sidebar-foot">
+      <div><span class="live-dot"></span>Sarah is live</div>
+    </div>
+  </aside>
+
+  <div class="mobile-bar">
+    <div class="brand-mini">A&amp;I <span>Solutions</span></div>
+    <button class="burger" onclick="openSidebar()" aria-label="Open menu">☰</button>
+  </div>
+
+  <main class="main">
+    <div class="content">
+
+      <div class="pageheader">
+        <div>
+          <div class="eyebrow">Manager Dashboard</div>
+          <h2>Leads &amp; calls overview</h2>
+          <p>Everything Sarah has collected — {{ stats.total }} total records</p>
+        </div>
+        <a class="export-btn" href="/export/leads.csv">⬇ Export CSV</a>
       </div>
-    </div>
 
-    <section class="stats">
-      <div class="stat"><small>Total Leads</small><strong>{{ stats.total }}</strong></div>
-      <div class="stat"><small>Hot / Emergency</small><strong style="color:#dc2626">{{ stats.hot }}</strong></div>
-      <div class="stat"><small>High Priority</small><strong style="color:#f59e0b">{{ stats.urgent }}</strong></div>
-      <div class="stat"><small>Scheduled</small><strong style="color:#16a34a">{{ stats.scheduled }}</strong></div>
-      <div class="stat"><small>Today</small><strong style="color:#2563eb">{{ stats.today }}</strong></div>
-    </section>
+      <section class="metrics">
+        <div class="metric m-today">
+          <div class="m-top">
+            <span class="m-label">Leads Today</span>
+            <span class="m-icon">📅</span>
+          </div>
+          <div class="m-value">{{ stats.today }}</div>
+          <div class="m-sub">New conversations today</div>
+        </div>
 
-    <form class="filters" method="get" action="/dashboard">
-      <input name="search" value="{{ search }}" placeholder="Search leads...">
-      <select name="quality">
-        {% for q in ['all', 'Emergency', 'Hot Lead', 'Qualified Lead', 'Needs Review', 'Low Priority', 'Not a Fit'] %}
-          <option value="{{ q }}" {% if quality == q %}selected{% endif %}>{{ display_quality(q) }}</option>
-        {% endfor %}
-      </select>
-      <select name="urgency">
-        {% for u in ['all', 'Emergency', 'High', 'Normal'] %}
-          <option value="{{ u }}" {% if urgency == u %}selected{% endif %}>{{ display_priority(u) }}</option>
-        {% endfor %}
-      </select>
-      <select name="status">
-        {% for s in ['all', 'New', 'Contacted', 'Scheduled', 'Proposal Sent', 'Won', 'Lost'] %}
-          <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit">Search</button>
-      <a href="/dashboard">Reset</a>
-    </form>
+        <div class="metric m-hot">
+          <div class="m-top">
+            <span class="m-label">Hot Leads</span>
+            <span class="m-icon">🔥</span>
+          </div>
+          <div class="m-value">{{ stats.hot }}</div>
+          <div class="m-sub">Hot &amp; emergency combined</div>
+        </div>
 
-    <section class="table-card">
-      {% if leads %}
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Customer</th>
-            <th>Project</th>
-            <th>Location</th>
-            <th>Budget</th>
-            <th>Timeline</th>
-            <th>Score</th>
-            <th>Interest</th>
-            <th>Priority</th>
-            <th>Status</th>
-            <th>Next Step</th>
-            <th>Still Needed</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for lead in leads %}
-          <tr>
-            <td>#{{ lead.id }}</td>
-            <td>
-              <a class="lead-link" href="/lead/{{ lead.id }}">{{ lead.full_name }}</a><br>
-              <span class="note">{{ lead.phone }}<br>{{ lead.email }}</span>
-            </td>
-            <td>{{ lead.project_type }}<br><span class="note">{{ lead.property_type }}</span></td>
-            <td>{{ lead.location }}</td>
-            <td>{{ lead.budget }}</td>
-            <td>{{ lead.timeline }}</td>
-            <td><span class="score">{{ lead.lead_score }}</span></td>
-            <td><span class="badge {{ quality_class(lead.lead_quality) }}">{{ display_quality(lead.lead_quality) }}</span></td>
-            <td><span class="badge {{ urgency_class(lead.urgency) }}">{{ lead.urgency }}</span></td>
-            <td>
-              <select class="status-select" onchange="updateStatus({{ lead.id }}, this.value)">
-                {% for s in ['New', 'Contacted', 'Scheduled', 'Proposal Sent', 'Won', 'Lost'] %}
-                  <option value="{{ s }}" {% if lead.status == s %}selected{% endif %}>{{ s }}</option>
-                {% endfor %}
-              </select>
-            </td>
-            <td><span class="note">{{ lead.recommended_action }}</span></td>
-            <td><span class="note">{{ lead.missing_info }}</span></td>
-          </tr>
+        <div class="metric m-score">
+          <div class="m-top">
+            <span class="m-label">Avg Lead Score</span>
+            <span class="m-icon">★</span>
+          </div>
+          <div class="m-value">{{ stats.avg_score if stats.avg_score is defined else '—' }}</div>
+          <div class="m-sub">Out of 100, all leads</div>
+        </div>
+
+        <div class="metric m-calls">
+          <div class="m-top">
+            <span class="m-label">Calls Handled</span>
+            <span class="m-icon">📞</span>
+          </div>
+          <div class="m-value">{{ stats.calls if stats.calls is defined else stats.total }}</div>
+          <div class="m-sub">Total conversations</div>
+        </div>
+      </section>
+
+      <section class="chart-card">
+        <div class="ch-head">
+          <h3>Leads by hour</h3>
+          <span class="ch-sub">Today, local time</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="leadsByHourChart"></canvas>
+        </div>
+      </section>
+
+      <form class="filters" method="get" action="/dashboard">
+        <input name="search" value="{{ search }}" placeholder="Search leads...">
+        <select name="quality">
+          {% for q in ['all', 'Emergency', 'Hot Lead', 'Qualified Lead', 'Needs Review', 'Low Priority', 'Not a Fit'] %}
+            <option value="{{ q }}" {% if quality == q %}selected{% endif %}>{{ display_quality(q) }}</option>
           {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="empty">
-        <div style="font-size:3rem;margin-bottom:12px">📭</div>
-        <h2>No leads found</h2>
-        <p>Start a conversation on the chat page to collect leads.</p>
-      </div>
-      {% endif %}
-    </section>
+        </select>
+        <select name="urgency">
+          {% for u in ['all', 'Emergency', 'High', 'Normal'] %}
+            <option value="{{ u }}" {% if urgency == u %}selected{% endif %}>{{ display_priority(u) }}</option>
+          {% endfor %}
+        </select>
+        <select name="status">
+          {% for s in ['all', 'New', 'Contacted', 'Scheduled', 'Proposal Sent', 'Won', 'Lost'] %}
+            <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit">Search</button>
+        <a href="/dashboard">Reset</a>
+      </form>
+
+      <section class="table-card">
+        {% if leads %}
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Score</th>
+              <th>Type</th>
+              <th>Time</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lead in leads %}
+            <tr>
+              <td>
+                <a class="lead-name" href="/lead/{{ lead.id }}">{{ lead.full_name }}</a>
+                <div class="phone-line">{{ lead.project_type }}</div>
+              </td>
+              <td><span class="time-line">{{ lead.phone }}</span></td>
+              <td>
+                {% set sc = lead.lead_score %}
+                <span class="score-pill {% if sc >= 85 %}s-hot{% elif sc >= 70 %}s-qualified{% else %}s-gray{% endif %}">
+                  {{ sc }}
+                </span>
+              </td>
+              <td><span class="type-badge {{ quality_class(lead.lead_quality) }}">{{ display_quality(lead.lead_quality) }}</span></td>
+              <td><span class="time-line">{{ lead.created_at }}</span></td>
+              <td>
+                <select class="status-select" onchange="updateStatus({{ lead.id }}, this.value)">
+                  {% for s in ['New', 'Contacted', 'Scheduled', 'Proposal Sent', 'Won', 'Lost'] %}
+                    <option value="{{ s }}" {% if lead.status == s %}selected{% endif %}>{{ s }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <div class="row-actions">
+                  <a class="view-btn" href="/lead/{{ lead.id }}">View</a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty">
+          <div class="e-ico">📭</div>
+          <h2>No leads found</h2>
+          <p>Start a conversation on the chat page to collect leads.</p>
+        </div>
+        {% endif %}
+      </section>
+
+    </div>
   </main>
 
   <script>
@@ -161,6 +449,63 @@
       });
       if (!res.ok) alert('Could not update status.');
     }
+
+    function openSidebar() {
+      document.getElementById('sidebar').classList.add('open');
+      document.getElementById('backdrop').classList.add('show');
+    }
+    function closeSidebar() {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('backdrop').classList.remove('show');
+    }
+
+    (function() {
+      const leadTimes = [
+        {% for lead in leads %}"{{ lead.created_at }}"{% if not loop.last %},{% endif %}{% endfor %}
+      ];
+
+      const hourCounts = new Array(24).fill(0);
+      leadTimes.forEach(function(ts) {
+        if (!ts) return;
+        const match = ts.match(/T?(\d{2}):\d{2}/);
+        if (match) {
+          const hour = parseInt(match[1], 10);
+          if (!isNaN(hour)) hourCounts[hour] += 1;
+        }
+      });
+
+      const labels = [];
+      for (let h = 0; h < 24; h++) {
+        const label = (h % 12 === 0 ? 12 : h % 12) + (h < 12 ? 'am' : 'pm');
+        labels.push(label);
+      }
+
+      const ctx = document.getElementById('leadsByHourChart');
+      if (ctx) {
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Leads',
+              data: hourCounts,
+              backgroundColor: '#f59e0b',
+              borderRadius: 5,
+              maxBarThickness: 22,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { precision: 0, color: '#94a3b8' }, grid: { color: '#f1f5f9' } },
+              x: { ticks: { color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false } }
+            }
+          }
+        });
+      }
+    })();
   </script>
 </body>
 </html>
