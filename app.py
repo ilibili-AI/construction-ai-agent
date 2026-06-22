@@ -1,5 +1,6 @@
 import os
-from flask import Flask
+from datetime import datetime, timezone
+from flask import Flask, jsonify
 from config import FLASK_SECRET_KEY, APP_ENV
 from services.database import init_db
 
@@ -30,14 +31,24 @@ def create_app():
             "display_priority": display_priority,
         }
 
+    @app.route("/health")
+    def health_check():
+        return jsonify({
+            "status": "ok",
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }), 200
+
     return app
+
 
 app = create_app()
 
 if __name__ == "__main__":
-    debug = APP_ENV != "production"
+    flask_env = os.environ.get("FLASK_ENV", APP_ENV)
+    debug = flask_env not in ("production", "prod")
+    port = int(os.environ.get("PORT", 5000))
     app.run(
         host="0.0.0.0",
-        port=int(os.getenv("PORT", "5000")),
+        port=port,
         debug=debug,
     )
